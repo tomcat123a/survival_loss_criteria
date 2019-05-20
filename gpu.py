@@ -241,7 +241,7 @@ def get_data_edge_lung(data_num,data_type='edge',train_rate=0.6):
         G1=nx.from_numpy_matrix(adj_weight)
         data_list=get_data_adj(x.values,adj_bi)
         
-        adjt=torch.tensor(adj_bi.astype(uint8))
+        adjt=torch.tensor(adj_weight.astype(np.float32))
         adj_train=adjt.repeat((int(train_rate*n),1)).view(-1,adjt.size(0),adjt.size(0))
         adj_test=adjt.repeat((n-int(train_rate*n),1)).view(-1,adjt.size(0),adjt.size(0))
         #loader=DenseDataLoader(data_list, batch_size=len(data_list),shuffle=False)   
@@ -284,11 +284,11 @@ class GNN(torch.nn.Module):
             self.conv2 = DenseSAGEConv(in_channels=hidden_channels, out_channels=out_channels, normalize=True)
         
         if gnn_type==2:
-            self.conv1 = GCNConv(in_channels=1, out_channels=out_channels, cached=True)
-            self.conv2 = GCNConv(in_channels=hidden_channels, out_channels=out_channels, cached=True)
+            self.conv1 = GCNConv(in_channels=1, out_channels=out_channels, cached=False)
+            self.conv2 = GCNConv(in_channels=hidden_channels, out_channels=out_channels, cached=False)
         if gnn_type==3:
-            self.conv1 = GCNConv(in_channels=1, out_channels=out_channels,improved=True, cached=True)
-            self.conv2 = GCNConv(in_channels=hidden_channels, out_channels=out_channels,improved=True, cached=True)
+            self.conv1 = GCNConv(in_channels=1, out_channels=out_channels,improved=True, cached=False)
+            self.conv2 = GCNConv(in_channels=hidden_channels, out_channels=out_channels,improved=True, cached=False)
         if gnn_type==4:
             self.conv1 = ChebConv(in_channels=1, out_channels=out_channels,K=2)
             self.conv2 = ChebConv(in_channels=hidden_channels, out_channels=out_channels,K=2)
@@ -299,11 +299,11 @@ class GNN(torch.nn.Module):
             self.conv1 = GraphConv(in_channels=1, out_channels=out_channels,aggr='add')
             self.conv2 = GraphConv(in_channels=hidden_channels, out_channels=out_channels,aggr='add')
         if gnn_type==7:
-            self.conv1 = GatedGraphConv(in_channels=1,out_channels=out_channels, num_layers=3, aggr='add', bias=True)
-            self.conv2 = GatedGraphConv(in_channels=hidden_channels,out_channels=out_channels, num_layers=3, aggr='add', bias=True)
+            self.conv1 = GatedGraphConv(out_channels=out_channels, num_layers=3, aggr='add', bias=True)
+            self.conv2 = GatedGraphConv(out_channels=out_channels, num_layers=3, aggr='add', bias=True)
         if gnn_type==8:
-            self.conv1 = GatedGraphConv(in_channels=1,out_channels=out_channels, num_layers=7, aggr='add', bias=True)
-            self.conv2 = GatedGraphConv(in_channels=hidden_channels,out_channels=out_channels, num_layers=7, aggr='add', bias=True)
+            self.conv1 = GatedGraphConv(out_channels=out_channels, num_layers=7, aggr='add', bias=True)
+            self.conv2 = GatedGraphConv(out_channels=out_channels, num_layers=7, aggr='add', bias=True)
         if gnn_type==9:
             self.conv1 =GATConv(in_channels=1,out_channels=out_channels, heads=1, concat=True, negative_slope=0.2,dropout=0.6)
             self.conv2 =GATConv(in_channels=hidden_channels,out_channels=out_channels, heads=1, concat=True, negative_slope=0.2,dropout=0.6)
@@ -400,7 +400,7 @@ class GNN(torch.nn.Module):
         x = x.view(batch_size, num_nodes, num_channels)
         return x
     
-    def forward(self, x, edge_index,edge_weight=None,adj=None, mask=None):
+    def forward(self, x, edge_index=None,edge_weight=None,adj=None, mask=None):
         #print('forward gnn')
         #print(self.in_channels)
         #print(self.conv1.in_channels)
@@ -413,35 +413,35 @@ class GNN(torch.nn.Module):
                 
                 x = self.conv1(x, adj)
                 x = x.view(-1,x.size()[-1])
-                x = F.relu(self.bn2(x))
+                x = F.leaky_relu(self.bn2(x))
                  
                 for i in range(self.k-1):
                     x = x.view(batch_size, num_nodes, -1)
                     x = self.conv2(x, adj)
                     x = x.view(-1,x.size()[-1])
-                    x = F.relu(self.bn2(x))
+                    x = F.leaky_relu(self.bn2(x))
             else:
                 x = self.conv1(x, adj)
                 x = x.view(-1,x.size()[-1])
-                x = F.relu(self.bn2(x))
+                x = F.leaky_relu(self.bn2(x))
             x = x.view(batch_size, num_nodes, -1)
         #GAT,AGNN,GraphConv, only accepts edge_index   [6,9,10,11,12]  
         elif self.gnn_type in [2,3,4,5,6,9,10,11,12,14,15,16,17,18] and edge_weight is None:
             if self.k >1 :
                 
-                x = F.relu(self.bn1( self.conv1(x, edge_index)))
+                x = F.leaky_relu(self.bn1( self.conv1(x, edge_index)))
                 for i in range(self.k-1):
-                    x = F.relu(self.bn2( self.conv2(x, edge_index)))
+                    x = F.leaky_relu(self.bn2( self.conv2(x, edge_index)))
             else:
-                x = F.relu(self.bn1( self.conv1(x, edge_index)))
+                x = F.leaky_relu(self.bn1( self.conv1(x, edge_index)))
         elif self.gnn_type in [2,3,4,5,7,8,14,15,16,17,18] and not (edge_weight is None):
             if self.k >1 :
                 
-                x = F.relu(self.bn1( self.conv1(x, edge_index,edge_weight)))
+                x = F.leaky_relu(self.bn1( self.conv1(x, edge_index,edge_weight)))
                 for i in range(self.k-1):
-                    x = F.relu(self.bn2( self.conv2(x, edge_index,edge_weight)))
+                    x = F.leaky_relu(self.bn2( self.conv2(x, edge_index,edge_weight)))
             else:
-                x = F.relu(self.bn1( self.conv1(x, edge_index,edge_weight)))
+                x = F.leaky_relu(self.bn1( self.conv1(x, edge_index,edge_weight)))
         
 
         return x
@@ -463,6 +463,7 @@ class Net0(torch.nn.Module):#gcn
 
         self.lin1 = torch.nn.Linear(self.num_features, 1)
         #self.lin2 = torch.nn.Linear(64, 6)
+        self.lin1times1 = torch.nn.Linear(self.out_channels,1)
         
     def forward(self, x, edge_index,edge_weight=None):
         if edge_weight is None:
@@ -475,8 +476,10 @@ class Net0(torch.nn.Module):#gcn
 
         #x = x.mean(dim=1)
         x = x.view(-1,self.num_features,self.out_channels)
-        x = x.mean(dim=-1)
-        x = F.relu(self.lin1(x))
+        #x = x.mean(dim=-1)
+        x = F.leaky_relu(self.lin1times1(x))
+        x = x.view(x.size()[0:2])
+        x = F.leaky_relu(self.lin1(x))
         #x = self.lin2(x)
         return x
 
@@ -500,6 +503,7 @@ class Net_diff_pool(torch.nn.Module):
         self.gnn3_embed = GNN(out_channels, out_channels, out_channels,gnn_k=1,gnn_type=1,add_loop=True)
 
         self.lin1 = torch.nn.Linear(int(0.2*self.out_clusters), 1)
+        self.lin1times1 = torch.nn.Linear(self.out_channels,1)
         
     
 
@@ -530,8 +534,11 @@ class Net_diff_pool(torch.nn.Module):
 
         x = self.gnn3_embed(x, adj=adj)
         x = x.view(-1,int(0.2*self.out_clusters),self.out_channels)
-        x = x.mean(dim=-1)
-        x = F.relu(self.lin1(x))
+        #x = x.mean(dim=-1)#1*1 convolution
+        x = F.leaky_relu(self.lin1times1(x))
+        x = x.view(x.size()[0:2])
+        
+        x = F.leaky_relu(self.lin1(x))
         
         return x, l1 + l2, e1 + e2
 
@@ -541,7 +548,7 @@ class Net_diff_pool(torch.nn.Module):
 
 #####################################################end functions
 
-def train_c(epoch, y_train, censor_train,mode,x_train=None,adj_train=None):
+def train_c(train_loader, y_train, censor_train,mode,x_train=None,adj_train=None):
     model.train()
     if mode=='edge'or mode=='edge_weight':
         for data in train_loader:
@@ -561,6 +568,7 @@ def train_c(epoch, y_train, censor_train,mode,x_train=None,adj_train=None):
     else:
         x_train = x_train.to(device)
         adj_train=adj_train.to(device)
+        #print(x_train is None)
         optimizer.zero_grad()
         output,link_loss,ent_loss = model(x_input=x_train, adj=adj_train.type(torch.float32),mask=None)
          
@@ -574,11 +582,12 @@ def train_c(epoch, y_train, censor_train,mode,x_train=None,adj_train=None):
 
 
 
-def test(loader,y_test,censor_test,mode,x_test=None,adj_test=None):
+def test(test_loader,y_test,censor_test,mode,x_test=None,adj_test=None):
     model.eval()
     if mode=='edge'or mode=='edge_weight':
         for data in test_loader:
             data = data.to(device)
+            #xdata=data
             if mode=='edge':
                 print(data.x.size())
                 pred = model(data.x.type(torch.float), data.edge_index)
@@ -590,30 +599,53 @@ def test(loader,y_test,censor_test,mode,x_test=None,adj_test=None):
     else:
         x_test = x_test.to(device)
         adj_test=adj_test.to(device)
-        optimizer.zero_grad()
-        pred ,link_loss,ent_loss= model(x_test, adj=adj_test)
-        cidx = c_index(pred, torch.from_numpy(y_test), torch.from_numpy(censor_test))
+        #optimizer.zero_grad()
+        with torch.no_grad():
+            pred ,link_loss,ent_loss= model(x_test, adj=adj_test.type(torch.float32))
+            cidx = c_index(pred, torch.from_numpy(y_test), torch.from_numpy(censor_test))
         return cidx
 
+#debug
+# =============================================================================
+#         model(xdata.x.type(torch.float), xdata.edge_index)
+# model.gnn1.conv1(xdata.x.type(torch.float), xdata.edge_index)    
+# =============================================================================
+#
 
-
-def do_c(maxit, y_train, censor_train, y_test, censor_test,mode='edge'):
+def do_c(maxit, y_train, censor_train, y_test, censor_test,mode,train_loader,test_loader,x_train,x_test,adj_train,adj_test):
+    
     for epoch in range(1, maxit):
-        temp_loss,train_cidx=train_c(epoch, y_train, censor_train,mode,x_train,adj_train)
+        temp_loss,train_cidx=train_c(train_loader, y_train, censor_train,mode,x_train,adj_train)
         test_cidx = test(test_loader, y_test, censor_test,mode,x_test,adj_test)
         if epoch %1==0:
-            print('training_loss at epock{} = {},test_c_index = {}'.format(epoch,temp_loss.data.numpy().ravel()[0],train_cidx))
-            #print('testing_c_index = {}'.format(test_cidx))
+            print('training_loss at epock{} = {},train_c_index = {}'.format(epoch,temp_loss.data.numpy().ravel()[0],train_cidx))
+            print('testing_c_index = {}'.format(test_cidx))
     
 #########################################################################
-            
+# =============================================================================
+# from time import time
+# mode=process_type
+# t0=time()
+# model.train()
+# train_c(train_loader, y_train, censor_train,mode,x_train,adj_train)
+# t1=time()-t0 
+# 
+# print(t1)
+# #model.eval()  
+# #with torch.no_grad():         
+# #    pred,link_loss,ent_loss= model(x_test, adj=adj_test.type(torch.float32))
+# #t2=time()-t0
+# 
+# print('t1={}, t2={}'.format(t1,t2))    
+# =============================================================================
+###########test time
             
 data_num=0
 process_type='edge_weight' #'edge_list'#'adj'
 process_type='edge'
 process_type='adj'
 if process_type!='adj':
-    data_list,y,censor,trainset,testset,num_features,adj_train,adj_test =get_data_edge_lung(data_num,data_type=process_type)
+    data_list,y,censor,trainset,testset,num_features,adj_train,adj_test = get_data_edge_lung(data_num,data_type=process_type)
 else:
     data_list,y,censor,trainset,testset,num_features,adj_train,adj_test = get_data_edge_lung(data_num,data_type=process_type)
 
@@ -636,6 +668,8 @@ if process_type!='adj':
     x_test=None
     
 else:
+    train_loader = None
+    test_loader = None
     x_train=data_list[trainset]
     x_test=data_list[testset]
     
@@ -646,26 +680,31 @@ else:
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 if process_type!='adj':
-    model = Net0(num_features,hidden_channels=5,out_channels=5,k=1).to(device)
+    #gnn_type=2-3GCONV,9-14GAT,4-5Cheb,7-8GatedGraph,6GraphConv,15SG,14ARMA
+    model = Net0(num_features,hidden_channels=2,out_channels=2,gnn_type=7,k=1).to(device)
 else:
-    model = Net_diff_pool(num_features,hidden_channels=5,out_channels=5,out_clusters=20,k=1).to(device)
+    model = Net_diff_pool(num_features,hidden_channels=2,out_channels=2,out_clusters=20,k=1).to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-do_c(2, y_train, censor_train, y_test, censor_test,mode=process_type)
-#test
-train_c(1, y_train, censor_train,process_type,x_train,adj_train)
-
-
-################
-model = Net_diff_pool(num_features,hidden_channels=5,out_channels=5,out_clusters=20,k=1).to(device)
-x=x_train
-adj=adj_train.type(torch.float32)  
-x1=model.gnn1_pool.conv1(x, adj )  
-result=model(x_train,adj)
-
-for data in test_loader:
-    dx=data.x.type(torch.float32)
-    de=data.edge_index
-dx.size()
-de.size()
+do_c(3, y_train, censor_train, y_test, censor_test,process_type,train_loader,test_loader,x_train,x_test,adj_train,adj_test)
+# =============================================================================
+# #test
+#model.eval()
+# train_c(1, y_train, censor_train,process_type,x_train,adj_train)
+# 
+# 
+# ################
+# model = Net_diff_pool(num_features,hidden_channels=5,out_channels=5,out_clusters=20,k=1).to(device)
+# x=x_train
+# adj=adj_train.type(torch.float32)  
+# x1=model.gnn1_pool.conv1(x, adj )  
+# result=model(x_train,adj)
+# 
+# for data in test_loader:
+#     dx=data.x.type(torch.float32)
+#     de=data.edge_index
+# dx.size()
+# de.size()
+# 
+# =============================================================================
