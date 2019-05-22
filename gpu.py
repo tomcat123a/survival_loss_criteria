@@ -138,7 +138,7 @@ def get_data_list_el_w(x_matrix,el,eattr):
     data_list=[]
     for i in range(1,x_matrix.shape[1]):
         data_list+=[Data(x=torch.tensor(x_matrix[:,i].reshape((-1,1))).type(torch.float32),\
-                         edge_index=el,edge_attr=torch.from_numpy(eattr.reshape((-1,1))))]
+                         edge_index=el,edge_attr=torch.from_numpy(eattr.reshape(-1)))]
     return data_list
 
 
@@ -159,7 +159,7 @@ def get_data_adj(x_matrix,adj):
 def get_data_edge_lung(data_num,data_type='edge',train_rate=0.6):
     
     
-    data_num=0
+    
     x=pd.read_csv('C:/Users/Administrator/Desktop/deepgraphsurv/lung_cancer/survdata/lung_x_{}.csv'.format(data_num))
     y=pd.read_csv('C:/Users/Administrator/Desktop/deepgraphsurv/lung_cancer/survdata/lung_t_{}.csv'.format(data_num)).iloc[:,1].values
     censor=pd.read_csv('C:/Users/Administrator/Desktop/deepgraphsurv/lung_cancer/survdata/lung_c_{}.csv'.format(data_num)).iloc[:,1].values
@@ -266,7 +266,11 @@ class GNN(torch.nn.Module):
                  normalize=False,
                  add_loop=False,
                  gnn_k=1,
-                 gnn_type=1):
+                 gnn_type=1,
+                 jump=None,#None,max,lstm
+                 res=False,
+                 activation='leaky'
+                 ):
         super(GNN, self).__init__()
 
         self.add_loop = add_loop
@@ -276,6 +280,26 @@ class GNN(torch.nn.Module):
         self.bn2 = torch.nn.BatchNorm1d(out_channels)
         self.k=gnn_k#number of repitiions of gnn
         self.gnn_type=gnn_type
+        
+        self.jump=jump
+        if not( jump is None):
+            if jump!='lstm':
+                self.jk=JumpingKnowledge(jump)
+            else:
+                self.jk=JumpingKnowledge(jump,out_channels,gnn_k)
+        if activation=='leaky':
+            self.activ=F.leaky_relu
+        elif activation=='elu':
+            self.activ=F.elu
+        elif activation=='relu':
+            self.activ=F.relu
+        self.res=res
+        if self.gnn_type in [10,12] and self.res==True:
+            raise Exception('res must be false when gnn_type==10 or 12!')
+        if self.k ==1 and self.res==True:
+            raise Exception('res must be false when gnn_k==1!')
+        if self.k ==1 and not( self.jump is  None):
+            raise Exception('jumping knowledge only serves for the case where k>1!')
         if gnn_type==0:
             self.conv1 = DenseSAGEConv(in_channels=self.in_channels, out_channels=out_channels, normalize=False)
             self.conv2 = DenseSAGEConv(in_channels=hidden_channels, out_channels=out_channels, normalize=False)
@@ -305,14 +329,14 @@ class GNN(torch.nn.Module):
             self.conv1 = GatedGraphConv(out_channels=out_channels, num_layers=7, aggr='add', bias=True)
             self.conv2 = GatedGraphConv(out_channels=out_channels, num_layers=7, aggr='add', bias=True)
         if gnn_type==9:
-            self.conv1 =GATConv(in_channels=1,out_channels=out_channels, heads=1, concat=True, negative_slope=0.2,dropout=0.6)
+            self.conv1 =GATConv(in_channels=1,out_channels=out_channels, heads=1, concat=True, negative_slope=0.2,dropout=0)
             self.conv2 =GATConv(in_channels=hidden_channels,out_channels=out_channels, heads=1, concat=True, negative_slope=0.2,dropout=0.6)
         if gnn_type==10:
             self.conv1 =GATConv(in_channels=1,out_channels=out_channels, heads=6, concat=False, negative_slope=0.2,dropout=0.6)
             self.conv2 =GATConv(in_channels=hidden_channels,out_channels=out_channels, heads=6, concat=False, negative_slope=0.2,dropout=0.6)
             
         if gnn_type==11:
-            self.conv1 =GATConv(in_channels=1,out_channels=out_channels, heads=4, concat=True, negative_slope=0.2,dropout=0.6)
+            self.conv1 =GATConv(in_channels=1,out_channels=out_channels, heads=4, concat=True, negative_slope=0.2,dropout=0)
             self.conv2 =GATConv(in_channels=hidden_channels,out_channels=out_channels, heads=4, concat=True, negative_slope=0.2,dropout=0.6)
         
         if gnn_type==12:
@@ -323,9 +347,9 @@ class GNN(torch.nn.Module):
             self.conv1 = AGNNConv(requires_grad=True)
             self.conv2 = AGNNConv(requires_grad=True)
         if gnn_type==14:
-            self.conv1 = ARMAConv(in_channels=1, out_channel=hidden_channels, num_stacks=1, num_layers=1, 
+            self.conv1 = ARMAConv(in_channels=1, out_channels=hidden_channels, num_stacks=1, num_layers=1, 
                                   shared_weights=False, act=F.relu, dropout=0.5, bias=True)
-            self.conv2 = ARMAConv(in_channels=hidden_channels, out_channel=out_channels, num_stacks=1, num_layers=1, 
+            self.conv2 = ARMAConv(in_channels=hidden_channels, out_channels=out_channels, num_stacks=1, num_layers=1, 
                                   shared_weights=False, act=F.relu, dropout=0.5, bias=True)
         if gnn_type==15:
             self.conv1 = SGConv(in_channels=1, out_channels=out_channels, K=1, cached=True, bias=True)
@@ -408,55 +432,133 @@ class GNN(torch.nn.Module):
         if self.gnn_type<=1:
             #batch_size, num_nodes, in_channels = x.size()
         #batch_size,num_nodes,num_nodes=adj.size()
+            
             batch_size, num_nodes, _ = x.size()
             if self.k >1 :
                 
                 x = self.conv1(x, adj)
                 x = x.view(-1,x.size()[-1])
-                x = F.leaky_relu(self.bn2(x))
-                 
-                for i in range(self.k-1):
-                    x = x.view(batch_size, num_nodes, -1)
-                    x = self.conv2(x, adj)
-                    x = x.view(-1,x.size()[-1])
-                    x = F.leaky_relu(self.bn2(x))
+                x = self.activ(self.bn2(x))
+                if self.res==True:
+                    x0 = x
+# =============================================================================
+#                     print('input size')
+#                     print(x.size())
+# =============================================================================
+                if self.jump==None:
+                    for i in range(self.k-1):
+                        x = x.view(batch_size, num_nodes, -1)
+                        x = self.conv2(x, adj)
+                        x = x.view(-1,x.size()[-1])
+                        x = self.activ(self.bn2(x))
+                else :
+                    xs=[x]
+                    for i in range(self.k-1):
+                        x = x.view(batch_size, num_nodes, -1)
+                        x = self.conv2(x, adj)
+                        x = x.view(-1,x.size()[-1])
+                        x = self.activ(self.bn2(x))
+                        xs = xs + [x]
+                    x = self.jk(xs)
+                if self.res==True:
+# =============================================================================
+#                     print('output size')
+#                     print(x.size())
+# =============================================================================
+                    x = x + x0    
+                        
             else:
                 x = self.conv1(x, adj)
                 x = x.view(-1,x.size()[-1])
-                x = F.leaky_relu(self.bn2(x))
+                x = self.activ(self.bn2(x))
             x = x.view(batch_size, num_nodes, -1)
+            
         #GAT,AGNN,GraphConv, only accepts edge_index   [6,9,10,11,12]  
-        elif self.gnn_type in [2,3,4,5,6,9,10,11,12,14,15,16,17,18] and edge_weight is None:
+        elif self.gnn_type in [2,3,4,5,6,7,8,9,10,11,12,14,15,16,17,18] and edge_weight is None:
+            
+            
             if self.k >1 :
                 
-                x = F.leaky_relu(self.bn1( self.conv1(x, edge_index)))
-                for i in range(self.k-1):
-                    x = F.leaky_relu(self.bn2( self.conv2(x, edge_index)))
+                x = self.activ(self.bn1( self.conv1(x, edge_index)))
+                if self.res==True:
+                    x0 = x
+# =============================================================================
+#                     print('input size')
+#                     print(x.size())
+# =============================================================================
+                if self.jump==None:
+                    for i in range(self.k-1):
+                        x = self.activ(self.bn2( self.conv2(x, edge_index)))
+                else:
+                    xs=[x]
+                    for i in range(self.k-1):
+                        x = self.activ(self.bn2( self.conv2(x, edge_index)))
+                        xs = xs + [x]
+                    x = self.jk(xs)
+                if self.res==True:
+# =============================================================================
+#                     print('output size')
+#                     print(x.size())
+# =============================================================================
+                    x = x + x0
             else:
-                x = F.leaky_relu(self.bn1( self.conv1(x, edge_index)))
+                x = self.activ(self.bn1( self.conv1(x, edge_index)))
+            
         elif self.gnn_type in [2,3,4,5,7,8,14,15,16,17,18] and not (edge_weight is None):
+            
+            if self.res==True:
+                x0 = x
+                
             if self.k >1 :
                 
-                x = F.leaky_relu(self.bn1( self.conv1(x, edge_index,edge_weight)))
-                for i in range(self.k-1):
-                    x = F.leaky_relu(self.bn2( self.conv2(x, edge_index,edge_weight)))
+                x = self.activ(self.bn1( self.conv1(x, edge_index,edge_weight)))
+                if self.res==True:
+                    x0 = x
+# =============================================================================
+                    #print('input size')
+                    #print(x.size())
+# =============================================================================
+                if self.jump==None:
+                    for i in range(self.k-1):
+                        x = self.activ(self.bn2( self.conv2(x, edge_index,edge_weight)))
+                else:
+                    xs=[x]
+                    for i in range(self.k-1):
+                        x = self.activ(self.bn2( self.conv2(x, edge_index,edge_weight)))
+                        xs = xs + [x]
+                    x = self.jk(xs)
+                if self.res==True:
+# =============================================================================
+                    #print('output size')
+                    #print(x.size())
+# =============================================================================
+                    x = x + x0
             else:
-                x = F.leaky_relu(self.bn1( self.conv1(x, edge_index,edge_weight)))
-        
+                x = self.activ(self.bn1( self.conv1(x, edge_index,edge_weight)))
+            if self.res==True:
+                x = x + x0
+        else:
+            raise ValueError()
 
         return x
 
 
 class Net0(torch.nn.Module):#gcn
-    def __init__(self,num_features,hidden_channels=5,out_channels=5,k=1,gnn_type=2):
+    def __init__(self,num_features,hidden_channels=5,out_channels=5,gnn_k=1,gnn_type=2,activation='leaky',res=False,jump=None):
         super(Net0, self).__init__()
         
         self.num_features = num_features    
         self.hidden_channels=hidden_channels
         self.out_channels=out_channels
-        self.k=k
+        self.gnn_k=gnn_k
         self.gnn_type=gnn_type
-        self.gnn1= GNN(1, self.hidden_channels, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.k,add_loop=True)
+        if activation=='leaky':
+            self.activ=F.leaky_relu
+        elif activation=='elu':
+            self.activ=F.elu
+        elif activation=='relu':
+            self.activ=F.relu
+        self.gnn1= GNN(1, self.hidden_channels, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.gnn_k,add_loop=True,res=res,jump=jump)
         #self.gnn2 = GNN(100, 64, 64, gnn_type=2,add_loop=True)
 
         #self.bn1 = torch.nn.BatchNorm1d(self.hidden_channels)
@@ -477,9 +579,9 @@ class Net0(torch.nn.Module):#gcn
         #x = x.mean(dim=1)
         x = x.view(-1,self.num_features,self.out_channels)
         #x = x.mean(dim=-1)
-        x = F.leaky_relu(self.lin1times1(x))
+        x = self.activ(self.lin1times1(x))
         x = x.view(x.size()[0:2])
-        x = F.leaky_relu(self.lin1(x))
+        x = self.activ(self.lin1(x))
         #x = self.lin2(x)
         return x
 
@@ -487,20 +589,26 @@ class Net0(torch.nn.Module):#gcn
 
 class Net_diff_pool(torch.nn.Module):
     #note that for gnn2_pool,the input dimension is the number of hidden nodes after the first pooling operation
-    def __init__(self,num_features,hidden_channels=50,out_channels=50,out_clusters=200,k=1,gnn_type=1):
+    def __init__(self,num_features,hidden_channels=50,out_channels=50,out_clusters=200,gnn_k=1,gnn_type=1,activation='leaky',res=False,jump=None):
         super(Net_diff_pool, self).__init__()
         self.num_features = num_features    
         self.out_clusters=out_clusters
         self.out_channels=out_channels
         self.hidden_channels=hidden_channels
-        self.gnn1_pool = GNN(1, out_clusters, out_clusters,gnn_k=1,gnn_type=1,add_loop=True)
-        self.gnn1_embed = GNN(1, hidden_channels, out_channels,gnn_k=1,gnn_type=1,add_loop=True)
+        if activation=='leaky':
+            self.activ=F.leaky_relu
+        elif activation=='elu':
+            self.activ=F.elu
+        elif activation=='relu':
+            self.activ=F.relu
+        self.gnn1_pool = GNN(1, out_clusters, out_clusters,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+        self.gnn1_embed = GNN(1, hidden_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
 
         
-        self.gnn2_pool = GNN(in_channels=out_channels,hidden_channels=int(out_clusters*0.2), out_channels=int(out_clusters*0.2),gnn_k=1,gnn_type=1,add_loop=True)
-        self.gnn2_embed = GNN(out_channels, out_channels, out_channels,gnn_k=1,gnn_type=1,add_loop=True)
+        self.gnn2_pool = GNN(in_channels=out_channels,hidden_channels=int(out_clusters*0.2),out_channels=int(out_clusters*0.2),gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+        self.gnn2_embed = GNN(out_channels, out_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
 
-        self.gnn3_embed = GNN(out_channels, out_channels, out_channels,gnn_k=1,gnn_type=1,add_loop=True)
+        self.gnn3_embed = GNN(out_channels, out_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
 
         self.lin1 = torch.nn.Linear(int(0.2*self.out_clusters), 1)
         self.lin1times1 = torch.nn.Linear(self.out_channels,1)
@@ -535,10 +643,10 @@ class Net_diff_pool(torch.nn.Module):
         x = self.gnn3_embed(x, adj=adj)
         x = x.view(-1,int(0.2*self.out_clusters),self.out_channels)
         #x = x.mean(dim=-1)#1*1 convolution
-        x = F.leaky_relu(self.lin1times1(x))
+        x = self.activ(self.lin1times1(x))
         x = x.view(x.size()[0:2])
         
-        x = F.leaky_relu(self.lin1(x))
+        x = self.activ(self.lin1(x))
         
         return x, l1 + l2, e1 + e2
 
@@ -553,6 +661,7 @@ def train_c(train_loader, y_train, censor_train,mode,x_train=None,adj_train=None
     if mode=='edge'or mode=='edge_weight':
         for data in train_loader:
             data = data.to(device)
+            #xdata=data
             optimizer.zero_grad()
             if mode=='edge':
                 output = model(data.x.type(torch.float),data.edge_index)
@@ -579,6 +688,8 @@ def train_c(train_loader, y_train, censor_train,mode,x_train=None,adj_train=None
         optimizer.step()
         
         return loss,c_idx    
+#
+#model.gnn1.conv1(data.x.type(torch.float), data.edge_index,data.edge_attr.type(torch.float).view(-1))
 
 
 
@@ -589,7 +700,7 @@ def test(test_loader,y_test,censor_test,mode,x_test=None,adj_test=None):
             data = data.to(device)
             #xdata=data
             if mode=='edge':
-                print(data.x.size())
+                #print(data.x.size())
                 pred = model(data.x.type(torch.float), data.edge_index)
             elif mode=='edge_weight':
                 pred = model(data.x.type(torch.float), data.edge_index,data.edge_attr.type(torch.float))
@@ -679,19 +790,22 @@ else:
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
+
 if process_type!='adj':
-    #gnn_type=2-3GCONV,9-14GAT,4-5Cheb,7-8GatedGraph,6GraphConv,15SG,14ARMA
-    model = Net0(num_features,hidden_channels=2,out_channels=2,gnn_type=7,k=1).to(device)
+    #gnn_type=2-3GCONV,9-14GAT,4-5Cheb,7-8GatedGraph,6GraphConv,15SG,14ARMA #6,9,10,11,12 only edge
+    model = Net0(num_features,hidden_channels=2,out_channels=2,gnn_type=2,gnn_k=3,res=True,jump='lstm').to(device)
 else:
-    model = Net_diff_pool(num_features,hidden_channels=2,out_channels=2,out_clusters=20,k=1).to(device)
+    model = Net_diff_pool(num_features,hidden_channels=2,out_channels=2,out_clusters=20,gnn_k=3,res=True,jump='max').to(device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-do_c(3, y_train, censor_train, y_test, censor_test,process_type,train_loader,test_loader,x_train,x_test,adj_train,adj_test)
+do_c(2, y_train, censor_train, y_test, censor_test,process_type,train_loader,test_loader,x_train,x_test,adj_train,adj_test)
+
 # =============================================================================
-# #test
+# test
 #model.eval()
-# train_c(1, y_train, censor_train,process_type,x_train,adj_train)
+
 # 
 # 
 # ################
