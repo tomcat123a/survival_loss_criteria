@@ -42,10 +42,10 @@ write_tcga<-function(cancer='BLCA'){
     dt=fread('C:/python_study/surviv/humanbase/urinary_bladder_top/urinary_bladder_top',fill=TRUE)
   }
    if(cancer=='LUSC'){
-     dt=fread('C:/python_study/surviv/humanbase/lung_top/lung_top',fill=TRUE)
+     dt=fread('C:/Users/Administrator/Desktop/deepgraphsurv/lung/lung_top/lung_top',fill=TRUE)
    } 
   if(cancer=='LUAD'){
-    dt=fread('C:/python_study/surviv/humanbase/lung_top/lung_top',fill=TRUE)
+    dt=fread('C:/Users/Administrator/Desktop/deepgraphsurv/lung/lung_top/lung_top',fill=TRUE)
   }
   setwd("C:/Users/Administrator/Desktop/deepgraphsurv/rnaseq_cancer/survdata")
    
