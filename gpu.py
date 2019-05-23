@@ -800,7 +800,7 @@ else:
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-do_c(2, y_train, censor_train, y_test, censor_test,process_type,train_loader,test_loader,x_train,x_test,adj_train,adj_test)
+do_c(50, y_train, censor_train, y_test, censor_test,process_type,train_loader,test_loader,x_train,x_test,adj_train,adj_test)
 
 # =============================================================================
 # test
