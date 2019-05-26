@@ -61,14 +61,14 @@ for(fi in c(1:length(lf))){
       xl[[fi]]=xtab
       xl_unlabel[[fi]]=NULL 
       phel[[fi]]=phenotab
-    }
+    }else{
     if(sum(!nomissing)==0 & dim(table3)[2]-1!=nrow(table1)){
       #xtab=table3[,-1][,nomissing]
       #xtab=table3[,-1][ ,colnames(table3[,-1])%in%phenotab$Sam_Name ]
       #xtab=cbind(table3[,1],xtab)#the first column of xtab is the entrezid
       print(fi)
       print('inconsistent with nomissing')
-    }
+    }else{
     
     if(sum(nomissing)==0 ){
       xl[[fi]]=NULL
@@ -90,21 +90,21 @@ for(fi in c(1:length(lf))){
         xl_unlabel[[fi]]=NULL
       }
     }
-    
-    
+    }
+}
     
     
     
 }
 
 ######test platform sample size
-#sum=0
-#for(i in 1:length(n_xl )){
-#  if(!is.null(n_xl[[i]])){
-#    sum=sum+dim(n_xl[[i]])[2]
-#  }
-#  print(dim(n_xl[[i]]))
-#}
+sum=0
+for(i in 1:length(xl )){
+  if(!is.null(xl[[i]])){
+    sum=sum+dim(xl[[i]])[2]
+  }
+  print(dim(xl[[i]]))
+}
 
 
 ######
@@ -207,7 +207,13 @@ for(i in 1:length(n_xl)){
   j=j+1
 }
 
-
+for(i in 1:length(n_xl_coge)){
+  
+  print(nrow(n_phel_coge[[ i ]])) 
+   
+  print(ncol(n_xl_coge[[ i ]])) 
+  
+}
 
 dfphe=do.call(rbind,n_phel_coge)
 dfx=do.call(cbind,n_xl_coge)
