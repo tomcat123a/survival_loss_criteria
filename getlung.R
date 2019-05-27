@@ -2,13 +2,13 @@ options(stringsAsFactors = FALSE)
 setwd("C:/Users/Administrator/Desktop/deepgraphsurv/lung_cancer")
 library( openxlsx)
 library(CONOR)
- 
+  
 
 lf=list.files(pattern='*xlsx')
 phel=list()
 xl=list()
 xl_unlabel=list()
-
+unlabel_batch=list()
 affy=sort(c(1,48,31,32,56,38,39,44,17,23,53,12,43,18,33,42,50,2,28,55,16,10,51,34,3,13,8,25,19,46,14,54,35))
 
 
@@ -19,9 +19,9 @@ agilent=sort(c(7,11,27,15))
 platform=4
  
 
-
-for(fi in c(1:length(lf))){
-    if(  !(strsplit(lf[fi],"_")[[1]][1] %in% c(affy,illu,agilent)) ){
+for(fi in 1:length(lf)){
+  batchid =strsplit(lf[fi],"_")[[1]][1]
+    if(  !( batchid %in% c(affy,illu,agilent)) ){
       next
     }
     print(fi)
@@ -32,7 +32,7 @@ for(fi in c(1:length(lf))){
     if(nrow(table1)!=nrow(table2)){
       print(fi)
       print('should be treated specially')
-      next
+       
       
       common_pat=intersect(table1[,1],table2[,1]) 
       if(length(common_pat)==0){
@@ -51,16 +51,18 @@ for(fi in c(1:length(lf))){
     nomissing=complete.cases( table1['Pat_Overall_Survival_Months'] )&complete.cases( table1['Pat_Died'] )
     
 
-    phenotab=cbind(table1[nomissing,c('Pat_ID','Pat_Overall_Survival_Months','Pat_Died')],
-                   Sam_Name=table2[nomissing,'Sam_Name'])
+    
     if(sum(!nomissing)==0 & dim(table3)[2]-1==nrow(table1)){
     #xtab=table3[,-1][,nomissing]
     #xtab=table3[,-1][ ,colnames(table3[,-1])%in%phenotab$Sam_Name ]
     #xtab=cbind(table3[,1],xtab)#the first column of xtab is the entrezid
+      phenotab=cbind(table1[nomissing,c('Pat_ID','Pat_Overall_Survival_Months','Pat_Died')],
+                     Sam_Name=table2[nomissing,'Sam_Name'],batch=batchid)
       xtab=table3
       xl[[fi]]=xtab
       xl_unlabel[[fi]]=NULL 
       phel[[fi]]=phenotab
+      unlabel_batch[[fi]]=NULL
     }else{
     if(sum(!nomissing)==0 & dim(table3)[2]-1!=nrow(table1)){
       #xtab=table3[,-1][,nomissing]
@@ -74,20 +76,26 @@ for(fi in c(1:length(lf))){
       xl[[fi]]=NULL
       xl_unlabel[[fi]]=table3
       phel[[fi]]=NULL
+      unlabel_batch[[fi]]=rep(batchid,ncol(xl_unlabel[[fi]])-1)
     }else{
       print(fi)
       print('in between!!')
+      phenotab=cbind(table1[nomissing,c('Pat_ID','Pat_Overall_Survival_Months','Pat_Died')],
+                     Sam_Name=table2[nomissing,'Sam_Name'],batch=batchid)
       phel[[fi]]=phenotab
       xtab=table3[,-1][ ,nomissing&colnames(table3[,-1])%in%phenotab$Sam_Name ]
       xtab=cbind(table3[,1],xtab)
+      
       xl[[fi]]=xtab
       if(sum(!(nomissing&colnames(table3[,-1])%in%phenotab$Sam_Name))!=0){
         x_unlabel_tab=table3[,-1][ ,!(nomissing&colnames(table3[,-1])%in%phenotab$Sam_Name) ]
         x_unlabel_tab=cbind(table3[,1],x_unlabel_tab)
         xl_unlabel[[fi]]=x_unlabel_tab
+        unlabel_batch[[fi]]=rep(batchid,ncol(xl_unlabel[[fi]])-1)
         
       }else{
         xl_unlabel[[fi]]=NULL
+        unlabel_batch[[fi]]=NULL
       }
     }
     }
@@ -98,20 +106,14 @@ for(fi in c(1:length(lf))){
 }
 
 ######test platform sample size
-sum=0
-for(i in 1:length(xl )){
-  if(!is.null(xl[[i]])){
-    sum=sum+dim(xl[[i]])[2]
-  }
-  print(dim(xl[[i]]))
-}
+ 
 
 
 ######
 
 #platform=0
 
-save(phel,xl,xl_unlabel,file=paste0('data_',platform,'.rda'))
+save(phel,xl,xl_unlabel,unlabel_batch,affy,illu,agilent,file=paste0('data_',platform,'.rda'))
 load(paste0('data_',platform,'.rda'))
 #build list,and remove those with genes < 10000
 
@@ -119,7 +121,7 @@ load(paste0('data_',platform,'.rda'))
 n_phel=list()
 n_xl=list()
 n_xl_unlabel=list()
-unlabel_batch=c()
+n_unlabel_batch=list()
  
 for(i in 1:length(xl)){
   print(i)
@@ -145,7 +147,7 @@ for(i in 1:length(xl)){
 
   
   if(!is.null(phel[[i]])){
-    n_phel[[i]]=cbind(phel[[i]],batch=i)#adding batch
+    n_phel[[i]]= phel[[i]] 
     print(nrow(n_phel[[i]]))
   }
   if(!is.null(xl[[i]])){
@@ -154,12 +156,11 @@ for(i in 1:length(xl)){
   }
   if(!is.null(xl_unlabel[[i]])){
     n_xl_unlabel[[i]]=xl_unlabel[[i]]
-    unlabel_batch=c(unlabel_batch,rep(i,ncol(xl_unlabel[[i]])-1))
+    n_unlabel_batch[[i]]=unlabel_batch[[i]]
   }
    #print(nrow(n_phel[[i]]))
 
 }
-
 
 
 #build a dataframe that cancatenates n_phel
@@ -170,7 +171,6 @@ for(i in 1:length(xl)){
 #    dfphe=rbind(dfphe,n_phel[[i]])
 #  }
 #}
-
 
 
 #remove duplication of samples
@@ -203,23 +203,19 @@ for(i in 1:length(n_xl)){
   
   n_phel_coge[[j]]=n_phel[[i]]
   tmp=n_xl[[i]][as.numeric(n_xl[[i]][,1])%in%common_id,]
+   
   n_xl_coge[[j]]=tmp[order(as.numeric(tmp[,1])),-1]
+  
+  rownames(n_xl_coge[[j]])=common_id
   j=j+1
 }
 
-for(i in 1:length(n_xl_coge)){
-  
-  print(nrow(n_phel_coge[[ i ]])) 
-   
-  print(ncol(n_xl_coge[[ i ]])) 
-  
-}
 
 dfphe=do.call(rbind,n_phel_coge)
 dfx=do.call(cbind,n_xl_coge)
 
 n_xl_coge_unlabel=list()
-
+n_batch_coge_unlabel=list()
  
 
 for(i in 1:length(n_xl_unlabel)){
@@ -231,28 +227,32 @@ for(i in 1:length(n_xl_unlabel)){
   }
   print(i)
   tmp=n_xl_unlabel[[i]][as.numeric(n_xl_unlabel[[i]][,1])%in%common_id,]
+  rnames=tmp[,1]
   n_xl_coge_unlabel[[i]]=tmp[order(as.numeric(tmp[,1])),-1]
-  
-  
+  rownames(n_xl_coge_unlabel[[i]])=rnames
+  n_batch_coge_unlabel[[i]]=n_unlabel_batch[[i]]
   
 }
 
 
 
 newlist=list()
+newlist1=list()
 j=1
 for(i in 1:length(n_xl_coge_unlabel)){
   if(is.null(n_xl_coge_unlabel[[i]]) ){
     next
   }
-  if(sum(!(common_id%in%rownames(n_xl_coge_unlabel[[i]])) )>0){
+  if(!all(common_id%in%rownames(n_xl_coge_unlabel[[i]])) ){
     next
   }
   print(ncol(n_xl_coge_unlabel[[i]]))
   newlist[[j]]=n_xl_coge_unlabel[[i]]
+  newlist1[[j]]=n_batch_coge_unlabel[[i]]
   j=j+1
 }
 dfx_unlabel=do.call(cbind,newlist) 
+dfx_unlabel_batch=do.call(cbind,newlist1) 
 if(all(!duplicated(dfphe[,1]))==TRUE){
   print('noUdplicated label')
 }
@@ -272,5 +272,12 @@ x=cbind(r2$x,r2$y)
 
 
 save(dfx,dfphe,dfx_unlabel,unlabel_batch,common_id,x1,x2,x3,x,file=paste0('finalx_',platform,'.rda'))
+
+
+
+
+
+
+
 
 
