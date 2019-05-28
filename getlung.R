@@ -52,7 +52,7 @@ for(fi in 1:length(lf)){
     
 
     
-    if(sum(!nomissing)==0 & dim(table3)[2]-1==nrow(table1)){
+    if(all(nomissing) & dim(table3)[2]-1==nrow(table1)){
     #xtab=table3[,-1][,nomissing]
     #xtab=table3[,-1][ ,colnames(table3[,-1])%in%phenotab$Sam_Name ]
     #xtab=cbind(table3[,1],xtab)#the first column of xtab is the entrezid
@@ -64,7 +64,7 @@ for(fi in 1:length(lf)){
       phel[[fi]]=phenotab
       unlabel_batch[[fi]]=NULL
     }else{
-    if(sum(!nomissing)==0 & dim(table3)[2]-1!=nrow(table1)){
+    if(all( nomissing) & dim(table3)[2]-1!=nrow(table1)){
       #xtab=table3[,-1][,nomissing]
       #xtab=table3[,-1][ ,colnames(table3[,-1])%in%phenotab$Sam_Name ]
       #xtab=cbind(table3[,1],xtab)#the first column of xtab is the entrezid
@@ -72,7 +72,7 @@ for(fi in 1:length(lf)){
       print('inconsistent with nomissing')
     }else{
     
-    if(sum(nomissing)==0 ){
+    if(all(!nomissing)  ){
       xl[[fi]]=NULL
       xl_unlabel[[fi]]=table3
       phel[[fi]]=NULL
@@ -83,12 +83,22 @@ for(fi in 1:length(lf)){
       phenotab=cbind(table1[nomissing,c('Pat_ID','Pat_Overall_Survival_Months','Pat_Died')],
                      Sam_Name=table2[nomissing,'Sam_Name'],batch=batchid)
       phel[[fi]]=phenotab
-      xtab=table3[,-1][ ,nomissing&colnames(table3[,-1])%in%phenotab$Sam_Name ]
+      table3data=table3[,-1]
+      if(sum(duplicated(colnames(table3data)))>0){
+        print(fi)
+        print('warning! duplicated')
+      }
+      
+      labindex=which( colnames(table3data)%in%( phenotab$Sam_Name  )   )
+      
+      unlabindex=which( !(colnames(table3data)%in%( phenotab$Sam_Name  ))   )
+       
+      xtab=table3data[ ,labindex]
       xtab=cbind(table3[,1],xtab)
       
       xl[[fi]]=xtab
-      if(sum(!(nomissing&colnames(table3[,-1])%in%phenotab$Sam_Name))!=0){
-        x_unlabel_tab=table3[,-1][ ,!(nomissing&colnames(table3[,-1])%in%phenotab$Sam_Name) ]
+      if(length(unlabindex)>0){
+        x_unlabel_tab=table3data[ ,unlabindex]
         x_unlabel_tab=cbind(table3[,1],x_unlabel_tab)
         xl_unlabel[[fi]]=x_unlabel_tab
         unlabel_batch[[fi]]=rep(batchid,ncol(xl_unlabel[[fi]])-1)
@@ -251,27 +261,39 @@ for(i in 1:length(n_xl_coge_unlabel)){
   newlist1[[j]]=n_batch_coge_unlabel[[i]]
   j=j+1
 }
+
 dfx_unlabel=do.call(cbind,newlist) 
-dfx_unlabel_batch=do.call(cbind,newlist1) 
+dfx_unlabel_batch=unlist(newlist1) 
+
 if(all(!duplicated(dfphe[,1]))==TRUE){
   print('noUdplicated label')
 }
+
+save(dfx,dfphe,dfx_unlabel,dfx_unlabel_batch,common_id,affy,illu,agilent,file=paste0('finalx_start_',platform,'.rda'))
+
+platform=4
+load(paste0('finalx_start_',platform,'.rda'))
+save(affy,illu,agilent,file=paste0('finalx_plat_',platform,'.rda'))
 
 
 x1=dfx[,dfphe$batch %in% affy]
 x2=dfx[,dfphe$batch %in% illu]
 x3=dfx[,dfphe$batch %in% agilent]
 
+
  
+
 
 r1=xpn(x2,x3,skip.match=TRUE)
 x23=cbind(r1$x,r1$y)
 r2=xpn(x1,x23,skip.match=TRUE)
 x=cbind(r2$x,r2$y)
 
+ 
+ux=xpn(z1,z2)
 
 
-save(dfx,dfphe,dfx_unlabel,unlabel_batch,common_id,x1,x2,x3,x,file=paste0('finalx_',platform,'.rda'))
+save(dfx,dfphe,dfx_unlabel,unlabel_batch,common_id,x1,x2,x3,x,ux,file=paste0('finalx_',platform,'.rda'))
 
 
 
