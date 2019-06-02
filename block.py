@@ -99,8 +99,12 @@ class block_adj_embed(torch.nn.Module):
         self.lin0_1times1 = torch.nn.Linear(self.out_channels,in_channels)
         
     def forward(self, x_input, adj, mask=None):
+        print('input')
+        print(x_input.size())
+        print(self.gnn0_embed)
         x = self.gnn0_embed(x_input,adj=adj,mask=mask)
-         
+        print('after gnn0_embed')
+        print(x.size())
         if self.reduce==True:
             x = self.lin0_1times1(x)
         return x
@@ -271,16 +275,20 @@ class cell1(torch.nn.Module):#gcn
         
     def forward(self, x, adj,mask=None):
         #the input size is (batch,num_features,n_channels)
+        x_input = x
         output=[]
         if self.res==False:
             for j in range(self.nb):
+                print('j={}'.format(j))
+                x = x_input
                 for i in range(self.depthlist[j]):
+                    print('i={}'.format(i))
                     x = self.conv[j][i](x, adj[j], mask)
                 output.append(x)
         else:
             for j in range(self.nb):
                 for i in range(self.depthlist[j]):
-                    x0 = x 
+                    x0 = x_input 
                     x = self.conv[j][i](x, adj[j], mask) + x0
                 output.append(x)
          
@@ -303,9 +311,15 @@ class cell1(torch.nn.Module):#gcn
     
 class Netadj(torch.nn.Module):
     #note that for gnn2_pool,the input dimension is the number of hidden nodes after the first pooling operation
-    def __init__(self,num_features ,out_channels=4,out_clusters_list=[100,10],gnn_k=1,gnn_type=1,\
-                 activation='leaky',res=False,jump=None,depthlist=[2],fc_node_list=[10,10,1]):
+    def __init__(self,num_features ,out_channels=4,out_clusters_list=[40,20],gnn_k=2,gnn_type=1,\
+                 activation='leaky',res=False,jump=None,depthlist=[2,2],fc_node_list=[20,10,1]):
         super(Netadj, self).__init__()
+        if len(depthlist)>3:
+            raise ValueError('len(depthlist) must be smaller or equal to 3.')
+        if gnn_k==1 and ( (jump is not None) or (res==True) ):
+            raise ValueError('if gnn_k==1 then jump must be None and res must be False.')
+        if out_channels*gnn_k%2!=0 and jump=='lstm':
+            raise ValueError('out_channels*gnn_k should be even numbers if jump==\'lstm\'.')
         self.num_features = num_features    
         self.out_clusters_list=out_clusters_list
         self.out_channels=out_channels
@@ -315,13 +329,13 @@ class Netadj(torch.nn.Module):
         embed_list=[cell1(num_features,in_channels=1,out_channels=self.out_channels,\
             gnn_type=gnn_type,gnn_k=gnn_k,res=res,jump=jump,depthlist=depthlist,nb=len(depthlist),fc_exist=False,reduce_tail=False) ]
         for i in range(len(out_clusters_list)-1):
-            embed_list=embed_list+[ cell1(num_features,in_channels=self.out_channels,out_channels=self.out_channels,\
+            embed_list=embed_list+[ cell1(self.out_clusters_list[i-1],in_channels=self.out_channels,out_channels=self.out_channels,\
             gnn_type=gnn_type,gnn_k=gnn_k,res=res,jump=jump,depthlist=depthlist,nb=len(depthlist),fc_exist=False,reduce_tail=False) ]
          
         pool_list=[cell1(num_features,in_channels=1,out_channels=out_clusters_list[0],\
             gnn_type=gnn_type,gnn_k=1,res=res,jump=jump,depthlist=[1],nb=1,fc_exist=False,reduce_tail=False)]
         for i in  range(1,len(self.out_clusters_list)):
-            pool_list=pool_list+[cell1(num_features,in_channels=self.out_channels,out_channels=self.out_clusters_list[i],\
+            pool_list=pool_list+[cell1(self.out_clusters_list[i-1],in_channels=self.out_channels,out_channels=self.out_clusters_list[i],\
             gnn_type=gnn_type,gnn_k=1,res=res,jump=jump,depthlist=[1],nb=1,fc_exist=False,reduce_tail=False)]
          
         self.embed_list=embed_list
@@ -337,11 +351,17 @@ class Netadj(torch.nn.Module):
         e_loss=0
         for i in range(len(self.out_clusters_list)):
             #print(x.size())    
+            print('layer')
+            print(i)
+            print(x.size())
             s = self.pool_list[i](x, adj=adj, mask=mask)
+            print('pool finished')
             x = self.embed_list[i](x, adj=adj, mask=mask)
              
             x, adj, l1, e1 = dense_diff_pool(x, adj[0], s, mask)
-             
+            #adj=[adj[0],adj[0]**2,adj[0]**3]
+            print('after diff pool')
+            print(x.size())
             l_loss+=l1
             e_loss+=e1
 # =============================================================================
@@ -356,9 +376,9 @@ class Netadj(torch.nn.Module):
 #         print('s size end')
 # =============================================================================
         x = self.lin1times1(x)
-        print(x.size())
+         
         x = x.view(x.size()[0:2])
-        print(x.size())
+         
         x = self.postfc(x)
         return x, l_loss, e_loss
 
