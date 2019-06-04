@@ -1,0 +1,427 @@
+#############trashbin
+
+# =============================================================================
+# class Net_b(torch.nn.Module):#gcn
+#     def __init__(self,num_features,hidden_channels=5,out_channels=5,gnn_k=1,gnn_type=2,activation='leaky',res=False,jump=None):
+#         super(Net_b, self).__init__()
+#         
+#         self.num_features = num_features    
+#         self.hidden_channels=hidden_channels
+#         self.out_channels=out_channels
+#         self.gnn_k=gnn_k
+#         self.gnn_type=gnn_type
+#         if activation=='leaky':
+#             self.activ=F.leaky_relu
+#         elif activation=='elu':
+#             self.activ=F.elu
+#         elif activation=='relu':
+#             self.activ=F.relu
+#         self.gnn1= GNN(1, self.hidden_channels, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.gnn_k,add_loop=True,res=res,jump=jump)
+#         #self.gnn2 = GNN(100, 64, 64, gnn_type=2,add_loop=True)
+# 
+#         #self.bn1 = torch.nn.BatchNorm1d(self.hidden_channels)
+# 
+#         self.lin1 = torch.nn.Linear(self.num_features, 1)
+#         #self.lin2 = torch.nn.Linear(64, 6)
+#         self.lin1times1 = torch.nn.Linear(self.out_channels,1)
+#         
+#     def forward(self, x, edge_index,edge_weight=None):
+#         if edge_weight is None:
+#             x = self.gnn1(x, edge_index)
+#         else:
+#             x = self.gnn1(x, edge_index,edge_weight)
+#         #x = self.gnn2(x, adj, mask)
+# 
+#         #x= self.bn1(x)
+# 
+#         #x = x.mean(dim=1)
+#         x = x.view(-1,self.num_features,self.out_channels)
+#         #x = x.mean(dim=-1)
+#         x = self.activ(self.lin1times1(x))
+#         x = x.view(x.size()[0:2])
+#         x = self.activ(self.lin1(x))
+#         #x = self.lin2(x)
+#         return x
+#  
+# 
+# class Net0(torch.nn.Module):#gcn
+#     def __init__(self,num_features,out_channels=5,gnn_k=1,gnn_type=2,activation='leaky',res=False,jump=None):
+#         super(Net0, self).__init__()
+#         
+#         self.num_features = num_features    
+#         
+#         self.out_channels=out_channels
+#         self.gnn_k=gnn_k
+#         self.gnn_type=gnn_type
+#         if activation=='leaky':
+#             self.activ=F.leaky_relu
+#         elif activation=='elu':
+#             self.activ=F.elu
+#         elif activation=='relu':
+#             self.activ=F.relu
+#         self.gnn1= GNN(1, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.gnn_k,add_loop=True,jump=jump)
+#         
+#         self.lin1 = torch.nn.Linear(self.num_features, 1)
+#         
+#         self.lin1times1 = torch.nn.Linear(self.out_channels,1)
+#         
+#     def forward(self, x, edge_index,edge_weight=None):
+#         x = self.gnn1(x, edge_index,edge_weight)
+#         #x = self.gnn2(x, adj, mask)
+# 
+#         #x= self.bn1(x)
+# 
+#         #x = x.mean(dim=1)
+#         x = x.view(-1,self.num_features,self.out_channels)
+#         #x = x.mean(dim=-1)
+#         x = self.activ(self.lin1times1(x))
+#         x = x.view(x.size()[0:2])
+#         x = self.activ(self.lin1(x))
+#         #x = self.lin2(x)
+#         return x
+# 
+# class Net1(torch.nn.Module):#gcn
+#     def __init__(self,num_features,hidden_channels=5,out_channels=5,gnn_k=1,gnn_type=2,activation='leaky',res=False,jump=None):
+#         super(Net1, self).__init__()
+#         
+#         self.num_features = num_features    
+#         self.hidden_channels=hidden_channels
+#         self.out_channels=out_channels
+#         self.gnn_k=gnn_k
+#         self.gnn_type=gnn_type
+#         if activation=='leaky':
+#             self.activ=F.leaky_relu
+#         elif activation=='elu':
+#             self.activ=F.elu
+#         elif activation=='relu':
+#             self.activ=F.relu
+#         self.gnn1= GNN(1, self.hidden_channels, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.gnn_k,add_loop=True,res=res,jump=jump)
+#         self.gnn2= GNN(1, self.hidden_channels, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.gnn_k,add_loop=True,res=res,jump=jump)
+#         
+#         self.lin1 = torch.nn.Linear(self.num_features, 1)
+#         #self.lin2 = torch.nn.Linear(64, 6)
+#         self.lin1times1 = torch.nn.Linear(self.out_channels,1)
+#         self.lin1times2 = torch.nn.Linear(self.out_channels,1)
+#         #self.lin1times3 = torch.nn.Linear(self.out_channels,1)
+#         
+#     def forward(self, x, edge_index,edge_weight=None):
+#         if edge_weight is None:
+#              
+#             x = self.gnn1(x, edge_index)
+#         else:
+#             x = self.gnn1(x, edge_index,edge_weight)
+#         #x = self.gnn2(x, adj, mask)
+# 
+#         #x= self.bn1(x)
+# 
+#         #x = x.mean(dim=1)
+#         x = x.view(-1,self.num_features,self.out_channels)
+#         #x = x.mean(dim=-1)
+#         x = self.activ(self.lin1times1(x))
+#         temp_size=x.size()[0:2]
+#         x = x.view(-1,1)
+#         if edge_weight is None:
+#             x = self.gnn2(x, edge_index)
+#         else:
+#             x = self.gnn2(x, edge_index,edge_weight)
+#         x = self.activ(self.lin1times2(x))    
+#         x = x.view(temp_size)
+#         x = self.activ(self.lin1(x))
+#         #x = self.lin2(x)
+#         return x
+# 
+# class Net2(torch.nn.Module):#gcn
+#     def __init__(self,num_features,hidden_channels=5,out_channels=5,gnn_k=1,gnn_type=2,activation='leaky',res=False,jump=None):
+#         super(Net2, self).__init__()
+#         
+#         self.num_features = num_features    
+#         self.hidden_channels=hidden_channels
+#         self.out_channels=out_channels
+#         self.gnn_k=gnn_k
+#         self.gnn_type=gnn_type
+#         if activation=='leaky':
+#             self.activ=F.leaky_relu
+#         elif activation=='elu':
+#             self.activ=F.elu
+#         elif activation=='relu':
+#             self.activ=F.relu
+#         self.gnn1= GNN(1, self.hidden_channels, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.gnn_k,add_loop=True,res=res,jump=jump)
+#         self.gnn2= GNN(1, self.hidden_channels, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.gnn_k,add_loop=True,res=res,jump=jump)
+#         self.gnn3= GNN(1, self.hidden_channels, self.out_channels, gnn_type=self.gnn_type,gnn_k=self.gnn_k,add_loop=True,res=res,jump=jump)
+#         
+#         #self.gnn2 = GNN(100, 64, 64, gnn_type=2,add_loop=True)
+# 
+#         #self.bn1 = torch.nn.BatchNorm1d(self.hidden_channels)
+# 
+#         self.lin1 = torch.nn.Linear(self.num_features, 1)
+#         #self.lin2 = torch.nn.Linear(30, 1)
+#         #self.lin2 = torch.nn.Linear(64, 6)
+#         self.lin1times1 = torch.nn.Linear(self.out_channels,1)
+#         self.lin1times2 = torch.nn.Linear(self.out_channels,1)
+#         self.lin1times3 = torch.nn.Linear(self.out_channels,1)
+#         
+#     def forward(self, x, edge_index,edge_weight=None):
+#         if edge_weight is None:
+#             x = self.gnn1(x, edge_index)
+#         else:
+#             x = self.gnn1(x, edge_index,edge_weight)
+#         #x = self.gnn2(x, adj, mask)
+# 
+#         #x= self.bn1(x)
+# 
+#         #x = x.mean(dim=1)
+#         x = x.view(-1,self.num_features,self.out_channels)
+#         #x = x.mean(dim=-1)
+#         x = self.activ(self.lin1times1(x))
+#         temp_size=x.size()[0:2]
+#         x = x.view(-1,1)
+#         if edge_weight is None:
+#             x = self.gnn2(x, edge_index)
+#         else:
+#             x = self.gnn2(x, edge_index,edge_weight)
+#         x = self.activ(self.lin1times2(x))
+#         x = x.view(-1,1)
+#         if edge_weight is None:
+#             x = self.gnn3(x, edge_index)
+#         else:
+#             x = self.gnn3(x, edge_index,edge_weight)
+#         x = self.activ(self.lin1times3(x))   
+#         x = x.view(temp_size)
+#         x = self.activ(self.lin1(x))
+#         #x = self.lin2(x)
+#         return x
+# 
+#     
+# class Net_diff_pool0(torch.nn.Module):
+#     #note that for gnn2_pool,the input dimension is the number of hidden nodes after the first pooling operation
+#     def __init__(self,num_features,hidden_channels=50,out_channels=50,out_clusters=200,gnn_k=1,gnn_type=1,activation='leaky',res=False,jump=None\
+#                  ,shrink_factor=0.2):
+#         super(Net_diff_pool0, self).__init__()
+#         self.num_features = num_features    
+#         self.out_clusters=out_clusters
+#         self.out_channels=out_channels
+#         self.sh_f=shrink_factor
+#         self.hidden_channels=hidden_channels
+#         assert out_clusters*shrink_factor>=2
+#         if activation=='leaky':
+#             self.activ=F.leaky_relu
+#         elif activation=='elu':
+#             self.activ=F.elu
+#         elif activation=='relu':
+#             self.activ=F.relu
+#         self.gnn1_pool = GNN(1, out_clusters, out_clusters,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.gnn1_embed = GNN(1, hidden_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         
+#         self.gnn2_pool = GNN(in_channels=out_channels,hidden_channels=int(out_clusters*self.sh_f),out_channels=int(out_clusters*self.sh_f),gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.gnn2_embed = GNN(out_channels, out_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         self.gnn3_embed = GNN(out_channels, out_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         self.lin1 = torch.nn.Linear(int(self.sh_f*self.out_clusters), 1)
+#         self.lin1times1 = torch.nn.Linear(self.out_channels,1)
+#         
+#     
+# 
+#     def forward(self, x_input, adj, mask=None):
+#         #print('forward diff')
+#         s = self.gnn1_pool(x_input, adj=adj, mask=mask)
+#         s = s.view(-1,self.num_features,s.size()[-1])
+#         x = self.gnn1_embed(x_input, adj=adj, mask=mask)
+#         x = x.view(-1,self.num_features,x.size()[-1])
+#         x, adj, l1, e1 = dense_diff_pool(x, adj, s, mask)
+#         
+# # =============================================================================
+# #         print('x')
+# #         print(x.size())
+# #         print('end x.size')
+# #         print('adj')
+# #         print(adj.size())
+# #         print('adj end')
+# #         print('s size')
+# #         print(s.size())
+# #         print('s size end')
+# # =============================================================================
+#         s = self.gnn2_pool(x, adj=adj)
+#         s = s.view(-1,adj.size()[1],s.size()[-1])
+#         x = self.gnn2_embed(x, adj=adj)
+#         x = x.view(-1,x.size()[1],x.size()[-1])
+#         x, adj, l2, e2 = dense_diff_pool(x, adj, s)
+# 
+#         x = self.gnn3_embed(x, adj=adj)
+#         x = x.view(-1,int(self.sh_f*self.out_clusters),self.out_channels)
+#         #x = x.mean(dim=-1)#1*1 convolution
+#         x = self.activ(self.lin1times1(x))
+#         x = x.view(x.size()[0:2])
+#         
+#         x = self.activ(self.lin1(x))
+#         
+#         return x, l1 + l2, e1 + e2
+# 
+# 
+# class Net_diff_pool1(torch.nn.Module):
+#     #note that for gnn2_pool,the input dimension is the number of hidden nodes after the first pooling operation
+#     def __init__(self,num_features,hidden_channels=50,out_channels=50,out_clusters=200,gnn_k=1,gnn_type=1,activation='leaky',res=False,jump=None\
+#                  ,shrink_factor=0.2):
+#         super(Net_diff_pool1, self).__init__()
+#         self.num_features = num_features    
+#         self.out_clusters=out_clusters
+#         self.out_channels=out_channels
+#         self.sh_f=shrink_factor
+#         self.hidden_channels=hidden_channels
+#         assert out_clusters*shrink_factor>=2
+#         if activation=='leaky':
+#             self.activ=F.leaky_relu
+#         elif activation=='elu':
+#             self.activ=F.elu
+#         elif activation=='relu':
+#             self.activ=F.relu
+#             
+#         self.gnn0_embed = GNN(1, hidden_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.lin0_1times1 = torch.nn.Linear(self.out_channels,1)
+#             
+#             
+#             
+#             
+#         self.gnn1_pool = GNN(1, out_clusters, out_clusters,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.gnn1_embed = GNN(1, hidden_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         
+#         self.gnn2_pool = GNN(in_channels=out_channels,hidden_channels=int(out_clusters*self.sh_f),out_channels=int(out_clusters*self.sh_f),gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.gnn2_embed = GNN(out_channels, out_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         self.gnn3_embed = GNN(out_channels, out_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         self.lin1 = torch.nn.Linear(int(self.sh_f*self.out_clusters), int(self.sh_f*self.out_clusters))
+#         self.bn1 = torch.nn.BatchNorm1d(int(self.sh_f*self.out_clusters))
+#         self.lin2 = torch.nn.Linear(int(self.sh_f*self.out_clusters), 1)
+#         self.lin1times1 = torch.nn.Linear(self.out_channels,1)
+#         
+#     
+# 
+#     def forward(self, x_input, adj, mask=None):
+#         #print('forward diff')
+#         #x_input.size()=batch,self.num_features,input_channels
+#         #s.size()=batch,self.num_features, self.out_clusters
+#         x = self.gnn0_embed(x_input,adj=adj,mask=mask)
+#         x = self.lin0_1times1(x)
+#         s = self.gnn1_pool(x, adj=adj, mask=mask)
+#         #s = s.view(-1,self.num_features,s.size()[-1])
+#         x = self.gnn1_embed(x, adj=adj, mask=mask)
+#         #x = x.view(-1,self.num_features,x.size()[-1])
+#         x, adj, l1, e1 = dense_diff_pool(x, adj, s, mask)
+#         
+# # =============================================================================
+# #         print('x')
+# #         print(x.size())
+# #         print('end x.size')
+# #         print('adj')
+# #         print(adj.size())
+# #         print('adj end')
+# #         print('s size')
+# #         print(s.size())
+# #         print('s size end')
+# # =============================================================================
+#         s = self.gnn2_pool(x, adj=adj)
+#         #s = s.view(-1,adj.size()[1],s.size()[-1])
+#         x = self.gnn2_embed(x, adj=adj)
+#         #x = x.view(-1,x.size()[1],x.size()[-1])
+#         x, adj, l2, e2 = dense_diff_pool(x, adj, s)
+# 
+#         x = self.gnn3_embed(x, adj=adj)
+#         x = x.view(-1,int(self.sh_f*self.out_clusters),self.out_channels)
+#         #x = x.mean(dim=-1)#1*1 convolution
+#         x = self.activ(self.lin1times1(x))
+#         x = x.view(x.size()[0:2])
+#         x = self.lin1(x)
+#         x = self.activ(self.bn1(x))
+#         x = self.lin2(x)
+#         
+#         return x, l1 + l2, e1 + e2
+# 
+# class Net_diff_pool2(torch.nn.Module):
+#     #note that for gnn2_pool,the input dimension is the number of hidden nodes after the first pooling operation
+#     def __init__(self,num_features,hidden_channels=50,out_channels=50,out_clusters=200,gnn_k=1,gnn_type=1,activation='leaky',res=False,jump=None\
+#                  ,shrink_factor=0.2):
+#         super(Net_diff_pool2, self).__init__()
+#         self.num_features = num_features    
+#         self.out_clusters=out_clusters
+#         self.out_channels=out_channels
+#         self.sh_f=shrink_factor
+#         self.hidden_channels=hidden_channels
+#         assert out_clusters*shrink_factor>=2
+#         if activation=='leaky':
+#             self.activ=F.leaky_relu
+#         elif activation=='elu':
+#             self.activ=F.elu
+#         elif activation=='relu':
+#             self.activ=F.relu
+#         self.gnn01_embed = GNN(1, hidden_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.lin01_1times1 = torch.nn.Linear(self.out_channels,1)
+#         self.gnn02_embed = GNN(1, hidden_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.lin02_1times1 = torch.nn.Linear(self.out_channels,1)
+#         self.gnn03_embed = GNN(1, hidden_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.lin03_1times1 = torch.nn.Linear(self.out_channels,1)
+#              
+#         
+#         self.gnn1_pool = GNN(1, out_clusters, out_clusters,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.gnn1_embed = GNN(1, hidden_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         
+#         self.gnn2_pool = GNN(in_channels=out_channels,hidden_channels=int(out_clusters*self.sh_f),out_channels=int(out_clusters*self.sh_f),gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+#         self.gnn2_embed = GNN(out_channels, out_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         self.gnn3_embed = GNN(out_channels, out_channels, out_channels,gnn_k=gnn_k,gnn_type=1,add_loop=True,res=res,jump=jump)
+# 
+#         self.lin1 = torch.nn.Linear(int(self.sh_f*self.out_clusters), int(self.sh_f*self.out_clusters))
+#         self.bn1 = torch.nn.BatchNorm1d(int(self.sh_f*self.out_clusters))
+#         self.lin2 = torch.nn.Linear(int(self.sh_f*self.out_clusters), 1)
+#         self.lin1times1 = torch.nn.Linear(self.out_channels,1)
+#         
+#     
+# 
+#     def forward(self, x_input, adj, mask=None):
+#         #print('forward diff')
+#         x = self.gnn01_embed(x_input,adj=adj,mask=mask)
+#         x = self.lin01_1times1(x)
+#         x = self.gnn02_embed(x,adj=adj,mask=mask)
+#         x = self.lin02_1times1(x)
+#         x = self.gnn03_embed(x,adj=adj,mask=mask)
+#         x = self.lin03_1times1(x)
+#         s = self.gnn1_pool(x, adj=adj, mask=mask)
+#         s = s.view(-1,self.num_features,s.size()[-1])
+#         x = self.gnn1_embed(x_input, adj=adj, mask=mask)
+#         x = x.view(-1,self.num_features,x.size()[-1])
+#         x, adj, l1, e1 = dense_diff_pool(x, adj, s, mask)
+#         
+# # =============================================================================
+# #         print('x')
+# #         print(x.size())
+# #         print('end x.size')
+# #         print('adj')
+# #         print(adj.size())
+# #         print('adj end')
+# #         print('s size')
+# #         print(s.size())
+# #         print('s size end')
+# # =============================================================================
+#         s = self.gnn2_pool(x, adj=adj)
+#         #s = s.view(-1,adj.size()[1],s.size()[-1])
+#         x = self.gnn2_embed(x, adj=adj)
+#         #x = x.view(-1,x.size()[1],x.size()[-1])
+#         x, adj, l2, e2 = dense_diff_pool(x, adj, s)
+# 
+#         x = self.gnn3_embed(x, adj=adj)
+#         x = x.view(-1,int(self.sh_f*self.out_clusters),self.out_channels)
+#         #x = x.mean(dim=-1)#1*1 convolution
+#         x = self.activ(self.lin1times1(x))
+#         x = x.view(x.size()[0:2])
+#         
+#         x = self.activ(self.bn1(self.lin1(x)))
+#         x = self.lin2(x)
+#         
+#         return x, l1 + l2, e1 + e2
+# 
+# 
+# #####################################################end functions
+# =============================================================================
